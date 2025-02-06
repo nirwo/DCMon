@@ -4,15 +4,15 @@ const path = require('path');
 const multer = require('multer');
 const { parse } = require('csv-parse');
 const ping = require('ping');
-const cookieParser = require('cookie-parser');  // For admin login UI
+const cookieParser = require('cookie-parser');
 const upload = multer();
 const app = express();
-const PORT = 3001;
+const PORT = 3000;
 
-// Use cookie parser middleware
+// Use cookie parser for admin login UI
 app.use(cookieParser());
 
-// Admin authentication middleware using cookie
+// Simple admin authentication using cookie "adminAuth"
 function requireAdminAuth(req, res, next) {
   if (req.cookies && req.cookies.adminAuth === 'secret') {
     next();
@@ -31,11 +31,10 @@ app.use('/sample_csv', express.static(path.join(__dirname, 'sample_csv')));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// In-memory data store structure: 
-// { owner: { application: [ { server, status, shutdown_sequence, pingable } ] } }
+// In-memory data store: { owner: { application: [ { server, status, shutdown_sequence, pingable } ] } }
 let dataStore = {};
 
-// Load demo data if dataStore is empty
+// Load demo data if empty
 function loadDemoData() {
   if (Object.keys(dataStore).length > 0) return;
   const owners = ['Owner1', 'Owner2', 'Owner3', 'Owner4', 'Owner5'];
@@ -53,7 +52,7 @@ function loadDemoData() {
   }
 }
 
-// Calculate overall progress (percentage of servers offline/shutdown)
+// Calculate overall progress (percentage offline/shutdown)
 function calculateProgress() {
   let total = 0, down = 0;
   Object.values(dataStore).forEach(apps => {
@@ -109,8 +108,10 @@ app.use((req, res, next) => {
   next();
 });
 
-// Extended filtering in /status endpoint; generate server cards as small flexible boxes.
-// Updated layout: server name in larger font on top, vertical button group below.
+// Extended filtering in /status endpoint.
+// For each server, display its server name (larger text), online status and sequence number.
+// Also, disable the "Initiate Shutdown" button if any server in the same application with a lower
+// shutdown_sequence is not yet shutdown.
 app.get('/status', (req, res) => {
   const filterOwner = (req.query.filterOwner || "").toLowerCase();
   const filterApp = (req.query.filterApp || "").toLowerCase();
@@ -147,14 +148,22 @@ app.get('/status', (req, res) => {
           let statusIcon = (srv.status === 'online') 
             ? '<span class="dot dot-green"></span>' 
             : '<span class="dot dot-red"></span>';
+          // Check if "Initiate Shutdown" should be disabled:
+          // Disable if any server in the same application with a lower sequence is not shutdown.
+          let currentSeq = Number(srv.shutdown_sequence);
+          let disableShutdown = servers.some(other => {
+            return Number(other.shutdown_sequence) < currentSeq && other.status !== 'shutdown';
+          });
           html += `
             <div class="card server-box m-1">
-              <div class="card-body p-1">
-                <h5 class="card-title" style="margin:0;">${srv.server}</h5>
-                <div class="btn-group-vertical mt-2" role="group">
-                  <button class="btn btn-warning btn-sm initiate-btn" data-owner="${owner}" data-application="${appName}" data-server="${srv.server}">Initiate Shutdown</button>
-                  <button class="btn btn-info btn-sm check-btn" data-owner="${owner}" data-application="${appName}" data-server="${srv.server}">Check Status</button>
-                  <button class="btn btn-primary btn-sm edit-btn" data-orig_owner="${owner}" data-orig_app="${appName}" data-orig_server="${srv.server}">Edit</button>
+              <div class="card-body p-1 text-center">
+                <h5 class="card-title" style="margin:0; font-size:0.9rem;">${srv.server}</h5>
+                <p style="margin:0;"><small>Status: ${srv.status}</small></p>
+                <p style="margin:0;"><small>Seq: ${srv.shutdown_sequence}</small></p>
+                <div class="d-flex flex-column mt-2">
+                  <button class="btn btn-warning btn-sm mb-1 initiate-btn" data-owner="${owner}" data-application="${appName}" data-server="${srv.server}" ${disableShutdown ? 'disabled' : ''}>Initiate Shutdown</button>
+                  <button class="btn btn-info btn-sm mb-1 check-btn" data-owner="${owner}" data-application="${appName}" data-server="${srv.server}">Check Status</button>
+                  <button class="btn btn-primary btn-sm mb-1 edit-btn" data-orig_owner="${owner}" data-orig_app="${appName}" data-orig_server="${srv.server}">Edit</button>
                 </div>
               </div>
             </div>
@@ -320,7 +329,7 @@ app.post('/edit_record', (req, res) => {
   else return res.status(404).json({ message: 'Record not found.' });
 });
 
-// DELETE record endpoint: delete record by owner, application, and server
+// DELETE record endpoint: delete a record by owner, application, and server
 app.post('/delete_record', (req, res) => {
   const { owner, application, server } = req.body;
   if (dataStore[owner] && dataStore[owner][application]) {
@@ -333,6 +342,6 @@ app.post('/delete_record', (req, res) => {
   return res.status(404).json({ message: 'Record not found.' });
 });
 
-app.listen(PORT,'0.0.0.0', () => {
+app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
