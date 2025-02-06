@@ -4,10 +4,10 @@ const path = require('path');
 const multer = require('multer');
 const { parse } = require('csv-parse');
 const ping = require('ping');
-const cookieParser = require('cookie-parser');
+const cookieParser = require('cookie-parser'); // For admin login UI
 const upload = multer();
 const app = express();
-const PORT = 3000;
+const PORT = 3001;
 
 // Use cookie parser for admin login UI
 app.use(cookieParser());
@@ -37,8 +37,8 @@ let dataStore = {};
 // Load demo data if empty
 function loadDemoData() {
   if (Object.keys(dataStore).length > 0) return;
-  const owners = ['Owner1', 'Owner2', 'Owner3', 'Owner4', 'Owner5'];
-  const apps = ['App1', 'App2', 'App3', 'App4', 'App5', 'App6', 'App7', 'App8', 'App9', 'App10'];
+  const owners = ['Owner1','Owner2','Owner3','Owner4','Owner5'];
+  const apps = ['App1','App2','App3','App4','App5','App6','App7','App8','App9','App10'];
   for (let i = 1; i <= 200; i++) {
     const owner = owners[Math.floor(Math.random() * owners.length)];
     const application = apps[Math.floor(Math.random() * apps.length)];
@@ -108,10 +108,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Extended filtering in /status endpoint.
-// For each server, display its server name (larger text), online status and sequence number.
-// Also, disable the "Initiate Shutdown" button if any server in the same application with a lower
-// shutdown_sequence is not yet shutdown.
+// Extended filtering in /status endpoint
 app.get('/status', (req, res) => {
   const filterOwner = (req.query.filterOwner || "").toLowerCase();
   const filterApp = (req.query.filterApp || "").toLowerCase();
@@ -133,42 +130,65 @@ app.get('/status', (req, res) => {
                    <small>${servers.length} servers</small>
                  </div>
                  <div class="server-boxes d-flex flex-wrap">`;
-      servers
-        .filter(srv => {
-          if (filterServer && !srv.server.toLowerCase().includes(filterServer)) return false;
-          let seq = Number(srv.shutdown_sequence);
-          if (filterSeqMin !== null && seq < filterSeqMin) return false;
-          if (filterSeqMax !== null && seq > filterSeqMax) return false;
-          if (filterStatus && filterStatus !== "all" && srv.status.toLowerCase() !== filterStatus) return false;
-          if (filterPingable && filterPingable !== "all" && srv.pingable.toLowerCase() !== filterPingable) return false;
-          return true;
-        })
-        .sort((a, b) => Number(a.shutdown_sequence) - Number(b.shutdown_sequence))
-        .forEach(srv => {
-          let statusIcon = (srv.status === 'online') 
-            ? '<span class="dot dot-green"></span>' 
-            : '<span class="dot dot-red"></span>';
-          // Check if "Initiate Shutdown" should be disabled:
-          // Disable if any server in the same application with a lower sequence is not shutdown.
+      // Filter and sort servers by shutdown_sequence
+      let filtered = servers.filter(srv => {
+        if (filterServer && !srv.server.toLowerCase().includes(filterServer)) return false;
+        let seq = Number(srv.shutdown_sequence);
+        if (filterSeqMin !== null && seq < filterSeqMin) return false;
+        if (filterSeqMax !== null && seq > filterSeqMax) return false;
+        if (filterStatus && filterStatus !== "all" && srv.status.toLowerCase() !== filterStatus) return false;
+        if (filterPingable && filterPingable !== "all" && srv.pingable.toLowerCase() !== filterPingable) return false;
+        return true;
+      }).sort((a, b) => Number(a.shutdown_sequence) - Number(b.shutdown_sequence));
+      
+      // Group by shutdown_sequence
+      let groups = {};
+      filtered.forEach(srv => {
+        if (!groups[srv.shutdown_sequence]) groups[srv.shutdown_sequence] = [];
+        groups[srv.shutdown_sequence].push(srv);
+      });
+      let seqKeys = Object.keys(groups).sort((a, b) => Number(a) - Number(b));
+      
+      html += `<div class="server-boxes d-flex flex-wrap">`;
+      seqKeys.forEach(seq => {
+        html += `<div class="w-100"><strong>Sequence: ${seq}</strong></div>`;
+        groups[seq].forEach(srv => {
+          // Determine if "Initiate Shutdown" should be disabled:
+          // It is disabled if any server in the same application with a lower sequence is not shutdown.
           let currentSeq = Number(srv.shutdown_sequence);
-          let disableShutdown = servers.some(other => {
-            return Number(other.shutdown_sequence) < currentSeq && other.status !== 'shutdown';
+          let disableShutdown = false;
+          seqKeys.forEach(key => {
+            if (Number(key) < currentSeq) {
+              groups[key].forEach(other => {
+                if (other.status !== 'shutdown') disableShutdown = true;
+              });
+            }
           });
+          // Create a colored badge for status
+          let statusBadge = '';
+          if (srv.status === 'online') {
+            statusBadge = '<span class="badge bg-success">Online</span>';
+          } else if (srv.status === 'offline') {
+            statusBadge = '<span class="badge bg-danger">Offline</span>';
+          } else {
+            statusBadge = `<span class="badge bg-secondary">${srv.status}</span>`;
+          }
+          
           html += `
             <div class="card server-box m-1">
               <div class="card-body p-1 text-center">
-                <h5 class="card-title" style="margin:0; font-size:0.9rem;">${srv.server}</h5>
-                <p style="margin:0;"><small>Status: ${srv.status}</small></p>
+                <h5 class="card-title" style="font-size: 0.9rem; margin:0;">${srv.server}</h5>
+                <p style="margin:0;">${statusBadge}</p>
                 <p style="margin:0;"><small>Seq: ${srv.shutdown_sequence}</small></p>
                 <div class="d-flex flex-column mt-2">
                   <button class="btn btn-warning btn-sm mb-1 initiate-btn" data-owner="${owner}" data-application="${appName}" data-server="${srv.server}" ${disableShutdown ? 'disabled' : ''}>Initiate Shutdown</button>
                   <button class="btn btn-info btn-sm mb-1 check-btn" data-owner="${owner}" data-application="${appName}" data-server="${srv.server}">Check Status</button>
-                  <button class="btn btn-primary btn-sm mb-1 edit-btn" data-orig_owner="${owner}" data-orig_app="${appName}" data-orig_server="${srv.server}">Edit</button>
                 </div>
               </div>
             </div>
           `;
         });
+      });
       html += `</div></div>`;
     });
     html += `</div>`;
@@ -177,7 +197,7 @@ app.get('/status', (req, res) => {
   res.json({ html, progress: overallProgress });
 });
 
-// New endpoint: Check status for an individual server (using ping)
+// Check status for an individual server
 app.post('/check_status', (req, res) => {
   const { owner, application, server } = req.body;
   if (dataStore[owner] && dataStore[owner][application]) {
@@ -223,7 +243,7 @@ app.get('/kpi', (req, res) => {
   res.render('kpi', { title: 'KPI Dashboard', kpi });
 });
 
-// CSV Import endpoint: clear existing data then import CSV (protected)
+// CSV Import endpoint (protected)
 app.post('/upload', requireAdminAuth, upload.single('csv_file'), (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'No file uploaded.' });
   dataStore = {};
@@ -342,6 +362,11 @@ app.post('/delete_record', (req, res) => {
   return res.status(404).json({ message: 'Record not found.' });
 });
 
-app.listen(PORT, () => {
+// 404 catch-all handler
+app.use((req, res) => {
+  res.status(404).render('404', { title: 'Page Not Found' });
+});
+
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
