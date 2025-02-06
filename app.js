@@ -7,7 +7,7 @@ const ping = require('ping');
 const cookieParser = require('cookie-parser');  // For admin login UI
 const upload = multer();
 const app = express();
-const PORT = 3000;
+const PORT = 3001;
 
 // Use cookie parser middleware
 app.use(cookieParser());
@@ -31,10 +31,11 @@ app.use('/sample_csv', express.static(path.join(__dirname, 'sample_csv')));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// In-memory data store structure: { owner: { application: [ { server, status, shutdown_sequence, pingable } ] } }
+// In-memory data store structure: 
+// { owner: { application: [ { server, status, shutdown_sequence, pingable } ] } }
 let dataStore = {};
 
-// Load demo data if empty
+// Load demo data if dataStore is empty
 function loadDemoData() {
   if (Object.keys(dataStore).length > 0) return;
   const owners = ['Owner1', 'Owner2', 'Owner3', 'Owner4', 'Owner5'];
@@ -108,7 +109,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// Extended filtering in /status endpoint; returns server cards as small, flexible boxes without delete button
+// Extended filtering in /status endpoint; generate server cards as small flexible boxes.
+// Updated layout: server name in larger font on top, vertical button group below.
 app.get('/status', (req, res) => {
   const filterOwner = (req.query.filterOwner || "").toLowerCase();
   const filterApp = (req.query.filterApp || "").toLowerCase();
@@ -148,17 +150,11 @@ app.get('/status', (req, res) => {
           html += `
             <div class="card server-box m-1">
               <div class="card-body p-1">
-                <div class="d-flex align-items-center">
-                  <div class="flex-grow-1">
-                    <h6 class="card-title" style="font-size: 0.8rem; margin:0;">${srv.server}</h6>
-                  </div>
-                  <div>
-                    <div class="d-flex flex-column">
-                      <button class="btn btn-warning btn-sm mb-1 initiate-btn" data-owner="${owner}" data-application="${appName}" data-server="${srv.server}">Initiate Shutdown</button>
-                      <button class="btn btn-info btn-sm mb-1 check-btn" data-owner="${owner}" data-application="${appName}" data-server="${srv.server}">Check Status</button>
-                      <button class="btn btn-primary btn-sm mb-1 edit-btn" data-orig_owner="${owner}" data-orig_app="${appName}" data-orig_server="${srv.server}">Edit</button>
-                    </div>
-                  </div>
+                <h5 class="card-title" style="margin:0;">${srv.server}</h5>
+                <div class="btn-group-vertical mt-2" role="group">
+                  <button class="btn btn-warning btn-sm initiate-btn" data-owner="${owner}" data-application="${appName}" data-server="${srv.server}">Initiate Shutdown</button>
+                  <button class="btn btn-info btn-sm check-btn" data-owner="${owner}" data-application="${appName}" data-server="${srv.server}">Check Status</button>
+                  <button class="btn btn-primary btn-sm edit-btn" data-orig_owner="${owner}" data-orig_app="${appName}" data-orig_server="${srv.server}">Edit</button>
                 </div>
               </div>
             </div>
@@ -206,21 +202,22 @@ app.get('/applications', (req, res) => {
 app.get('/admin', requireAdminAuth, (req, res) => {
   res.render('admin', { title: 'Admin Panel', data: dataStore });
 });
-// KPI view
-app.get('/kpi', (req, res) => {
-  const kpi = computeKPI();
-  res.render('kpi', { title: 'KPI Dashboard', kpi });
-});
 
 // Admin CSV Import tab (protected)
 app.get('/admin/csv_import', requireAdminAuth, (req, res) => {
   res.render('csv_import', { title: 'CSV Import' });
 });
 
+// KPI view
+app.get('/kpi', (req, res) => {
+  const kpi = computeKPI();
+  res.render('kpi', { title: 'KPI Dashboard', kpi });
+});
+
 // CSV Import endpoint: clear existing data then import CSV (protected)
 app.post('/upload', requireAdminAuth, upload.single('csv_file'), (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'No file uploaded.' });
-  dataStore = {};  // Clear existing data before importing
+  dataStore = {};
   const map_owner = req.body.map_owner || 'owner';
   const map_application = req.body.map_application || 'application';
   const map_server = req.body.map_server || 'server';
@@ -248,8 +245,7 @@ app.post('/upload', requireAdminAuth, upload.single('csv_file'), (req, res) => {
   });
 });
 
-
-// Trigger Ping Test endpoint: update each server's status by pinging
+// Trigger Ping Test endpoint: update status of each server by pinging
 app.post('/trigger_ping', async (req, res) => {
   let promises = [];
   Object.keys(dataStore).forEach(owner => {
