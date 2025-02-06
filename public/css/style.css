@@ -1,0 +1,30 @@
+/* Custom styles */
+body {
+  background-color: #f0f2f5;
+}
+.dot {
+  height: 10px;
+  width: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.dot-green {
+  background-color: green;
+}
+.dot-red {
+  background-color: red;
+}
+.owner-section, .app-section {
+  margin-bottom: 15px;
+}
+.server-boxes {
+  display: flex;
+  flex-wrap: wrap;
+}
+.filter-sidebar {
+  background: #fff;
+  padding: 15px;
+  border-radius: 5px;
+  margin-bottom: 20px;
+  box-shadow: 0 0 5px rgba(0,0,0,0.1);
+}

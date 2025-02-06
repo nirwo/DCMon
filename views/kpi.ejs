@@ -1,0 +1,25 @@
+<div class="text-center">
+  <h1>KPI Dashboard</h1>
+  <canvas id="statusChart" width="400" height="400"></canvas>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  const ctx = document.getElementById('statusChart').getContext('2d');
+  const data = {
+    labels: ['Online', 'Offline'],
+    datasets: [{
+      data: [<%= kpi.online %>, <%= kpi.offline %>],
+      backgroundColor: ['green', 'red']
+    }]
+  };
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: data,
+    options: {
+      responsive: true,
+      maintainAspectRatio: false
+    }
+  });
+});
+</script>

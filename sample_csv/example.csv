@@ -1,0 +1,5 @@
+owner,application,server,status,shutdown_sequence,pingable
+Alice,App1,server1,online,0,yes
+Alice,App1,server2,online,1,yes
+Bob,App2,server3,offline,0,no
+Bob,App3,server4,online,2,yes

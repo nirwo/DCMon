@@ -1,0 +1,79 @@
+<div>
+  <h1 class="text-center mb-4">Admin Panel</h1>
+  <table id="admin-table" class="table table-bordered table-striped">
+    <thead class="table-dark">
+      <tr>
+        <th>Owner</th>
+        <th>Application</th>
+        <th>Server</th>
+        <th>Status</th>
+        <th>Shutdown Seq</th>
+        <th>Pingable</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% Object.keys(data).forEach(owner => { %>
+        <% Object.keys(data[owner]).forEach(app => { %>
+          <% data[owner][app].forEach(srv => { %>
+            <tr>
+              <td data-field="owner"><%= owner %></td>
+              <td data-field="application"><%= app %></td>
+              <td data-field="server"><%= srv.server %></td>
+              <td data-field="status"><%= srv.status %></td>
+              <td data-field="shutdown_sequence"><%= srv.shutdown_sequence %></td>
+              <td data-field="pingable"><%= srv.pingable %></td>
+              <td>
+                <button class="btn btn-primary btn-sm edit-btn" data-orig_owner="<%= owner %>" data-orig_app="<%= app %>" data-orig_server="<%= srv.server %>">Edit</button>
+                <button class="btn btn-danger btn-sm delete-btn" data-owner="<%= owner %>" data-application="<%= app %>" data-server="<%= srv.server %>">Delete</button>
+              </td>
+            </tr>
+          <% }); %>
+        <% }); %>
+      <% }); %>
+    </tbody>
+  </table>
+  <!-- Edit Modal -->
+  <div id="edit-modal" class="modal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Edit Record</h5>
+          <button type="button" class="btn-close close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="edit-form">
+            <input type="hidden" name="orig_owner" id="orig_owner">
+            <input type="hidden" name="orig_app" id="orig_app">
+            <input type="hidden" name="orig_server" id="orig_server">
+            <div class="mb-3">
+              <label class="form-label">Owner:</label>
+              <input type="text" name="new_owner" id="new_owner" class="form-control">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Application:</label>
+              <input type="text" name="new_app" id="new_app" class="form-control">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Server:</label>
+              <input type="text" name="new_server" id="new_server" class="form-control">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Status:</label>
+              <input type="text" name="new_status" id="new_status" class="form-control">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Shutdown Seq:</label>
+              <input type="text" name="new_shutdown_sequence" id="new_shutdown_sequence" class="form-control">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Pingable:</label>
+              <input type="text" name="new_pingable" id="new_pingable" class="form-control">
+            </div>
+            <button type="submit" class="btn btn-success">Save Changes</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

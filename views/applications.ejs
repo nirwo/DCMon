@@ -1,0 +1,21 @@
+<div>
+  <h1 class="text-center">Applications</h1>
+  <% Object.keys(data).forEach(owner => { %>
+    <% Object.keys(data[owner]).forEach(app => { %>
+      <div class="card mb-3">
+        <div class="card-header">
+          <strong><%= owner %></strong> - Application: <%= app %>
+        </div>
+        <div class="card-body">
+          <% data[owner][app].forEach(srv => { %>
+            <span class="badge bg-light text-dark me-2">
+              <strong><%= srv.server %></strong> 
+              <%- (srv.status === 'online') ? '<span class="dot dot-green"></span>' : '<span class="dot dot-red"></span>' %> 
+              [Seq: <%= srv.shutdown_sequence %>]
+            </span>
+          <% }); %>
+        </div>
+      </div>
+    <% }); %>
+  <% }); %>
+</div>
