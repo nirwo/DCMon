@@ -15,9 +15,13 @@
                     <strong><%= srv.server %></strong>
                   </div>
                   <div class="me-2">
-                    <%- (srv.status === 'online') 
-                          ? '<span class="dot dot-green"></span>' 
-                          : '<span class="dot dot-red"></span>' %>
+                    <% if (srv.status === 'online') { %>
+                      <span class="dot dot-green"></span>
+                    <% } else if (srv.status === 'offline') { %>
+                      <span class="dot dot-red"></span>
+                    <% } else { %>
+                      <span class="dot dot-secondary"></span>
+                    <% } %>
                   </div>
                   <div>
                     <small>Seq: <%= srv.shutdown_sequence %></small>

@@ -1,9 +1,9 @@
 <div class="row">
+  <!-- Sidebar Filter -->
   <div class="col-md-3">
     <div class="filter-sidebar border p-3 mb-3">
       <h5>Filters</h5>
       <form id="filter-form">
-         <!-- Your filter fields remain unchanged -->
          <div class="mb-2">
             <label for="filterOwner" class="form-label">Owner</label>
             <input type="text" id="filterOwner" class="form-control" placeholder="Owner">
@@ -28,31 +28,36 @@
             <label for="filterStatus" class="form-label">Status</label>
             <select id="filterStatus" class="form-select">
               <option value="all">All</option>
-              <option value="online">online</option>
-              <option value="offline">offline</option>
-              <option value="shutdown">shutdown</option>
+              <option value="online">Online</option>
+              <option value="offline">Offline</option>
+              <option value="shutdown">Shutdown</option>
             </select>
          </div>
          <div class="mb-2">
             <label for="filterPingable" class="form-label">Pingable</label>
             <select id="filterPingable" class="form-select">
               <option value="all">All</option>
-              <option value="yes">yes</option>
-              <option value="no">no</option>
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
             </select>
          </div>
          <button type="submit" class="btn btn-primary w-100">Apply Filter</button>
       </form>
     </div>
   </div>
+  <!-- Main Dashboard -->
   <div class="col-md-9">
-    <div class="text-center">
+    <div class="text-center mb-3">
        <h1>Dashboard</h1>
-       <button id="trigger-ping" class="btn btn-warning mb-3">Trigger Ping Test</button>
+       <button id="trigger-ping" class="btn btn-warning">Trigger Ping Test</button>
     </div>
+    <!-- Status messages area (can be updated via client-side JS) -->
+    <div id="status-message" class="mb-3"></div>
+    <!-- Server cards area -->
     <div id="server-status" class="d-flex flex-wrap justify-content-start">
-      <!-- Server cards will be loaded here -->
+      <!-- Content loaded via AJAX from /status -->
     </div>
+    <!-- Progress Bar -->
     <div id="progress-container" class="my-3">
       <div id="progress" class="progress">
          <div class="progress-bar" style="width: 0%;">0%</div>

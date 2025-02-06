@@ -1,5 +1,10 @@
-<div>
-  <h1 class="text-center mb-4">Admin Panel</h1>
+<div class="container">
+  <h1 class="text-center my-4">Admin Panel</h1>
+  <div class="mb-4">
+    <a href="/admin/csv_import" class="btn btn-info">CSV Import</a>
+    <a href="/admin/logout" class="btn btn-secondary">Logout</a>
+  </div>
+  <h3>Records</h3>
   <table id="admin-table" class="table table-bordered table-striped">
     <thead class="table-dark">
       <tr>
@@ -7,7 +12,7 @@
         <th>Application</th>
         <th>Server</th>
         <th>Status</th>
-        <th>Shutdown Seq</th>
+        <th>Sequence</th>
         <th>Pingable</th>
         <th>Actions</th>
       </tr>
@@ -17,12 +22,12 @@
         <% Object.keys(data[owner]).forEach(app => { %>
           <% data[owner][app].forEach(srv => { %>
             <tr>
-              <td data-field="owner"><%= owner %></td>
-              <td data-field="application"><%= app %></td>
-              <td data-field="server"><%= srv.server %></td>
-              <td data-field="status"><%= srv.status %></td>
-              <td data-field="shutdown_sequence"><%= srv.shutdown_sequence %></td>
-              <td data-field="pingable"><%= srv.pingable %></td>
+              <td><%= owner %></td>
+              <td><%= app %></td>
+              <td><%= srv.server %></td>
+              <td><%= srv.status %></td>
+              <td><%= srv.shutdown_sequence %></td>
+              <td><%= srv.pingable %></td>
               <td>
                 <button class="btn btn-primary btn-sm edit-btn" data-orig_owner="<%= owner %>" data-orig_app="<%= app %>" data-orig_server="<%= srv.server %>">Edit</button>
                 <button class="btn btn-danger btn-sm delete-btn" data-owner="<%= owner %>" data-application="<%= app %>" data-server="<%= srv.server %>">Delete</button>
@@ -33,46 +38,71 @@
       <% }); %>
     </tbody>
   </table>
+  <h3>Activity Log</h3>
+  <div class="card">
+    <div class="card-body">
+      <% if (activityLog && activityLog.length > 0) { %>
+        <ul>
+          <% activityLog.forEach(log => { %>
+            <li><%= log %></li>
+          <% }); %>
+        </ul>
+      <% } else { %>
+        <p>No activity logged yet.</p>
+      <% } %>
+    </div>
+  </div>
+
   <!-- Edit Modal -->
   <div id="edit-modal" class="modal" tabindex="-1">
     <div class="modal-dialog">
       <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">Edit Record</h5>
-          <button type="button" class="btn-close close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body">
-          <form id="edit-form">
-            <input type="hidden" name="orig_owner" id="orig_owner">
-            <input type="hidden" name="orig_app" id="orig_app">
-            <input type="hidden" name="orig_server" id="orig_server">
-            <div class="mb-3">
-              <label class="form-label">Owner:</label>
-              <input type="text" name="new_owner" id="new_owner" class="form-control">
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Application:</label>
-              <input type="text" name="new_app" id="new_app" class="form-control">
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Server:</label>
-              <input type="text" name="new_server" id="new_server" class="form-control">
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Status:</label>
-              <input type="text" name="new_status" id="new_status" class="form-control">
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Shutdown Seq:</label>
-              <input type="text" name="new_shutdown_sequence" id="new_shutdown_sequence" class="form-control">
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Pingable:</label>
-              <input type="text" name="new_pingable" id="new_pingable" class="form-control">
-            </div>
+        <form id="edit-form">
+          <div class="modal-header">
+            <h5 class="modal-title">Edit Record</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+              <input type="hidden" name="orig_owner" id="orig_owner">
+              <input type="hidden" name="orig_app" id="orig_app">
+              <input type="hidden" name="orig_server" id="orig_server">
+              <div class="mb-3">
+                <label class="form-label">Owner:</label>
+                <input type="text" name="new_owner" id="new_owner" class="form-control">
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Application:</label>
+                <input type="text" name="new_app" id="new_app" class="form-control">
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Server:</label>
+                <input type="text" name="new_server" id="new_server" class="form-control">
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Status:</label>
+                <select name="new_status" id="new_status" class="form-select">
+                  <option value="online">Online</option>
+                  <option value="offline">Offline</option>
+                  <option value="shutdown">Shutdown</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Shutdown Sequence:</label>
+                <input type="number" name="new_shutdown_sequence" id="new_shutdown_sequence" class="form-control">
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Pingable:</label>
+                <select name="new_pingable" id="new_pingable" class="form-select">
+                  <option value="yes">Yes</option>
+                  <option value="no">No</option>
+                </select>
+              </div>
+          </div>
+          <div class="modal-footer">
             <button type="submit" class="btn btn-success">Save Changes</button>
-          </form>
-        </div>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          </div>
+        </form>
       </div>
     </div>
   </div>

@@ -7,12 +7,12 @@ const ping = require('ping');
 const cookieParser = require('cookie-parser');
 const upload = multer();
 const app = express();
-const PORT = 3001;
+const PORT = 3000;
 
-// Use cookie-parser for admin login UI
+// Use cookie parser middleware for admin login
 app.use(cookieParser());
 
-// Simple admin authentication using cookie "adminAuth"
+// Simple admin authentication via cookie "adminAuth"
 function requireAdminAuth(req, res, next) {
   if (req.cookies && req.cookies.adminAuth === 'secret') {
     next();
@@ -21,19 +21,19 @@ function requireAdminAuth(req, res, next) {
   }
 }
 
-// Set view engine and default layout
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
-app.use(expressLayouts);
-app.set('layout', 'layout');
-app.use(express.static(path.join(__dirname, 'public')));
-app.use('/sample_csv', express.static(path.join(__dirname, 'sample_csv')));
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
-
-// In-memory data store structure: 
-// { owner: { application: [ { server, status, shutdown_sequence, pingable } ] } }
+// In-memory data store: { owner: { application: [ { server, status, shutdown_sequence, pingable } ] } }
 let dataStore = {};
+
+// In-memory activity log array
+let activityLog = [];
+
+// Log activity helper
+function logActivity(message) {
+  const timestamp = new Date().toLocaleString();
+  activityLog.push(`[${timestamp}] ${message}`);
+  // Keep log at max 100 entries
+  if (activityLog.length > 100) activityLog.shift();
+}
 
 // Load demo data if empty
 function loadDemoData() {
@@ -51,18 +51,17 @@ function loadDemoData() {
     if (!dataStore[owner][application]) dataStore[owner][application] = [];
     dataStore[owner][application].push({ server, status, shutdown_sequence, pingable });
   }
+  logActivity("Loaded demo data");
 }
 
-// Calculate overall progress (percentage of servers offline/shutdown)
+// Calculate overall progress
 function calculateProgress() {
   let total = 0, down = 0;
   Object.values(dataStore).forEach(apps => {
     Object.values(apps).forEach(servers => {
       servers.forEach(srv => {
         total++;
-        if (srv.status === 'offline' || srv.status === 'shutdown') {
-          down++;
-        }
+        if (srv.status === 'offline' || srv.status === 'shutdown') down++;
       });
     });
   });
@@ -88,6 +87,18 @@ function computeKPI() {
   return { total_servers, total_applications: applications.size, online, offline, pingable, non_pingable };
 }
 
+// Set up view engine and layouts
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+app.use(expressLayouts);
+app.set('layout', 'layout');
+
+// Serve static assets
+app.use(express.static(path.join(__dirname, 'public')));
+app.use('/sample_csv', express.static(path.join(__dirname, 'sample_csv')));
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+
 // Admin Login Routes
 app.get('/admin/login', (req, res) => {
   res.render('admin_login', { title: 'Admin Login', error: null });
@@ -97,20 +108,22 @@ app.post('/admin/login', (req, res) => {
   const { password } = req.body;
   if (password === 'secret') {
     res.cookie('adminAuth', 'secret', { httpOnly: true });
+    logActivity("Admin logged in");
     res.redirect('/admin');
   } else {
     res.render('admin_login', { title: 'Admin Login', error: 'Invalid password' });
   }
 });
 
-// Ensure demo data is loaded
+// Ensure demo data is loaded for every request
 app.use((req, res, next) => {
   loadDemoData();
   next();
 });
 
-// /status endpoint with extended filtering and grouping by sequence
+// /status endpoint: returns a responsive dashboard with server cards
 app.get('/status', (req, res) => {
+  // Extended filtering parameters
   const filterOwner = (req.query.filterOwner || "").toLowerCase();
   const filterApp = (req.query.filterApp || "").toLowerCase();
   const filterServer = (req.query.filterServer || "").toLowerCase();
@@ -125,8 +138,8 @@ app.get('/status', (req, res) => {
     html += `<div class="owner-section mb-3"><h5>Owner: ${owner}</h5>`;
     Object.entries(apps).forEach(([appName, servers]) => {
       if (filterApp && !appName.toLowerCase().includes(filterApp)) return;
-      // Filter and sort servers by shutdown_sequence
-      let filteredServers = servers.filter(srv => {
+      // Filter and sort servers
+      let filtered = servers.filter(srv => {
         if (filterServer && !srv.server.toLowerCase().includes(filterServer)) return false;
         let seq = Number(srv.shutdown_sequence);
         if (filterSeqMin !== null && seq < filterSeqMin) return false;
@@ -136,40 +149,57 @@ app.get('/status', (req, res) => {
         return true;
       }).sort((a, b) => Number(a.shutdown_sequence) - Number(b.shutdown_sequence));
       
+      // Group servers by shutdown_sequence
+      let groups = {};
+      filtered.forEach(srv => {
+        if (!groups[srv.shutdown_sequence]) groups[srv.shutdown_sequence] = [];
+        groups[srv.shutdown_sequence].push(srv);
+      });
+      let seqKeys = Object.keys(groups).sort((a, b) => Number(a) - Number(b));
+      
       html += `<div class="app-section card p-2 mb-3">
                  <div class="d-flex justify-content-between align-items-center mb-2">
                    <h6 class="mb-0">Application: ${appName}</h6>
-                   <small>${filteredServers.length} servers</small>
-                 </div>
-                 <div class="server-boxes d-flex flex-wrap">`;
-      
-      // Render each server card in order
-      filteredServers.forEach(srv => {
-        // Disable initiate if any server in the same application with a lower sequence is not shutdown.
-        let currentSeq = Number(srv.shutdown_sequence);
-        let disableShutdown = filteredServers.some(other => {
-          return Number(other.shutdown_sequence) < currentSeq && other.status !== 'shutdown';
-        });
-        // Status badge with colors
-        let statusBadge = '';
-        if (srv.status === 'online') statusBadge = '<span class="badge bg-success">Online</span>';
-        else if (srv.status === 'offline') statusBadge = '<span class="badge bg-danger">Offline</span>';
-        else statusBadge = `<span class="badge bg-secondary">${srv.status}</span>`;
-        
-        html += `
-          <div class="card server-box m-1">
-            <div class="card-body p-1 text-center">
-              <h5 class="card-title" style="font-size: 0.9rem; margin:0;">${srv.server}</h5>
-              <p style="margin:0;">${statusBadge}</p>
-              <p style="margin:0;"><small>Seq: ${srv.shutdown_sequence}</small></p>
-              <div class="d-flex flex-column mt-2">
-                <button class="btn btn-warning btn-sm mb-1 initiate-btn" data-owner="${owner}" data-application="${appName}" data-server="${srv.server}" ${disableShutdown ? 'disabled' : ''}>Initiate Shutdown</button>
-                <button class="btn btn-info btn-sm mb-1 check-btn" data-owner="${owner}" data-application="${appName}" data-server="${srv.server}">Check Status</button>
-                <button class="btn btn-primary btn-sm mb-1 edit-btn" data-orig_owner="${owner}" data-orig_app="${appName}" data-orig_server="${srv.server}">Edit</button>
+                   <small>${filtered.length} servers</small>
+                 </div>`;
+      html += `<div class="server-boxes d-flex flex-wrap">`;
+      seqKeys.forEach(seq => {
+        html += `<div class="w-100"><strong>Sequence: ${seq}</strong></div>`;
+        groups[seq].forEach(srv => {
+          // Disable initiate shutdown if any server with a lower sequence is not shut down
+          let currentSeq = Number(srv.shutdown_sequence);
+          let disableShutdown = seqKeys.some(key => {
+            if (Number(key) < currentSeq) {
+              return groups[key].some(other => other.status !== 'shutdown');
+            }
+            return false;
+          });
+          
+          // Colored status badge
+          let statusBadge = '';
+          if (srv.status === 'online') {
+            statusBadge = '<span class="badge bg-success">Online</span>';
+          } else if (srv.status === 'offline') {
+            statusBadge = '<span class="badge bg-danger">Offline</span>';
+          } else {
+            statusBadge = `<span class="badge bg-secondary">${srv.status}</span>`;
+          }
+          
+          html += `
+            <div class="card server-box m-1">
+              <div class="card-body p-1 text-center">
+                <h5 class="card-title" style="font-size: 0.9rem; margin:0;">${srv.server}</h5>
+                <p style="margin:0;">${statusBadge}</p>
+                <p style="margin:0;"><small>Seq: ${srv.shutdown_sequence}</small></p>
+                <div class="d-flex flex-column mt-2">
+                  <button class="btn btn-warning btn-sm mb-1 initiate-btn" data-owner="${owner}" data-application="${appName}" data-server="${srv.server}" ${disableShutdown ? 'disabled' : ''}>Initiate Shutdown</button>
+                  <button class="btn btn-info btn-sm mb-1 check-btn" data-owner="${owner}" data-application="${appName}" data-server="${srv.server}">Check Status</button>
+                  <button class="btn btn-primary btn-sm mb-1 edit-btn" data-orig_owner="${owner}" data-orig_app="${appName}" data-orig_server="${srv.server}">Edit</button>
+                </div>
               </div>
             </div>
-          </div>
-        `;
+          `;
+        });
       });
       html += `</div></div>`;
     });
@@ -188,6 +218,7 @@ app.post('/check_status', (req, res) => {
       ping.promise.probe(srv.server)
         .then(result => {
           srv.status = result.alive ? 'online' : 'offline';
+          logActivity(`Checked status for ${server}: ${srv.status}`);
           return res.json({ message: `Status for ${server} updated to ${srv.status}.` });
         })
         .catch(() => res.status(500).json({ message: 'Error checking status.' }));
@@ -209,9 +240,9 @@ app.get('/applications', (req, res) => {
   res.render('applications', { title: 'Applications', data: dataStore });
 });
 
-// Admin view (protected)
+// Admin view (protected) with activity log
 app.get('/admin', requireAdminAuth, (req, res) => {
-  res.render('admin', { title: 'Admin Panel', data: dataStore });
+  res.render('admin', { title: 'Admin Panel', data: dataStore, activityLog });
 });
 
 // Admin CSV Import tab (protected)
@@ -252,6 +283,7 @@ app.post('/upload', requireAdminAuth, upload.single('csv_file'), (req, res) => {
       dataStore[owner][application].push({ server, status, shutdown_sequence, pingable });
       importedCount++;
     });
+    logActivity(`Imported ${importedCount} records via CSV`);
     return res.json({ message: `CSV imported successfully. ${importedCount} records added.` });
   });
 });
@@ -271,7 +303,10 @@ app.post('/trigger_ping', async (req, res) => {
     });
   });
   Promise.all(promises)
-    .then(() => res.json({ message: "Ping test triggered and statuses updated." }))
+    .then(() => {
+      logActivity("Ping test triggered on all servers");
+      res.json({ message: "Ping test triggered and statuses updated." });
+    })
     .catch(() => res.status(500).json({ message: "Error during ping tests." }));
 });
 
@@ -287,8 +322,12 @@ app.post('/initiate_shutdown', (req, res) => {
       }
     });
   }
-  if (updated) return res.json({ message: `Shutdown sequence initiated for ${server}.` });
-  else return res.status(404).json({ message: 'Server not found or already shut down.' });
+  if (updated) {
+    logActivity(`Initiated shutdown for ${server}`);
+    return res.json({ message: `Shutdown sequence initiated for ${server}.` });
+  } else {
+    return res.status(404).json({ message: 'Server not found or already shut down.' });
+  }
 });
 
 // Shutdown endpoint: mark server as shutdown
@@ -303,8 +342,12 @@ app.post('/shutdown', (req, res) => {
       }
     });
   }
-  if (updated) return res.json({ message: `Server '${server}' has been shut down.` });
-  else return res.status(404).json({ message: 'Server not found or already shut down.' });
+  if (updated) {
+    logActivity(`Server ${server} shut down`);
+    return res.json({ message: `Server '${server}' has been shut down.` });
+  } else {
+    return res.status(404).json({ message: 'Server not found or already shut down.' });
+  }
 });
 
 // Admin edit record endpoint
@@ -325,6 +368,7 @@ app.post('/edit_record', (req, res) => {
       if (!dataStore[new_owner][new_app]) dataStore[new_owner][new_app] = [];
       dataStore[new_owner][new_app].push(record);
       updated = true;
+      logActivity(`Edited record for ${orig_server}`);
     }
   }
   if (updated) return res.json({ message: 'Record updated successfully.' });
@@ -338,17 +382,18 @@ app.post('/delete_record', (req, res) => {
     const index = dataStore[owner][application].findIndex(srv => srv.server === server);
     if (index > -1) {
       dataStore[owner][application].splice(index, 1);
+      logActivity(`Deleted record for ${server}`);
       return res.json({ message: 'Record deleted successfully.' });
     }
   }
   return res.status(404).json({ message: 'Record not found.' });
 });
 
-// 404 catch-all handler
+// 404 catch-all handler: render custom 404 page
 app.use((req, res) => {
   res.status(404).render('404', { title: 'Page Not Found' });
 });
 
-app.listen(PORT,'0.0.0.0', () => {
+app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
