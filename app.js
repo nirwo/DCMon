@@ -1,12 +1,22 @@
 const express = require('express');
 const expressLayouts = require('express-ejs-layouts');
 const path = require('path');
-const multer  = require('multer');
+const multer = require('multer');
 const { parse } = require('csv-parse');
 const ping = require('ping');
 const upload = multer();
 const app = express();
 const PORT = 3000;
+
+// Simple admin authentication middleware (example: header "x-admin-password" must equal "secret")
+function requireAdminAuth(req, res, next) {
+  const pwd = req.headers['x-admin-password'];
+  if (pwd === 'secret') {
+    next();
+  } else {
+    res.status(401).send("Unauthorized: Invalid admin password.");
+  }
+}
 
 // Set view engine and default layout
 app.set('view engine', 'ejs');
@@ -18,21 +28,22 @@ app.use('/sample_csv', express.static(path.join(__dirname, 'sample_csv')));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// In-memory data store structure: { owner: { application: [ { server, status, shutdown_sequence, pingable } ] } }
+// In-memory data store structure: 
+// { owner: { application: [ { server, status, shutdown_sequence, pingable } ] } }
 let dataStore = {};
 
-// Load 200 demo records if dataStore is empty
+// Load demo data if dataStore is empty
 function loadDemoData() {
   if (Object.keys(dataStore).length > 0) return;
-  const owners = ['Owner1','Owner2','Owner3','Owner4','Owner5'];
-  const apps = ['App1','App2','App3','App4','App5','App6','App7','App8','App9','App10'];
+  const owners = ['Owner1', 'Owner2', 'Owner3', 'Owner4', 'Owner5'];
+  const apps = ['App1', 'App2', 'App3', 'App4', 'App5', 'App6', 'App7', 'App8', 'App9', 'App10'];
   for (let i = 1; i <= 200; i++) {
-    const owner = owners[Math.floor(Math.random()*owners.length)];
-    const application = apps[Math.floor(Math.random()*apps.length)];
+    const owner = owners[Math.floor(Math.random() * owners.length)];
+    const application = apps[Math.floor(Math.random() * apps.length)];
     const server = 'server' + i;
     const status = (Math.random() > 0.5) ? 'online' : 'offline';
     const pingable = (status === 'online' && Math.random() > 0.2) ? 'yes' : 'no';
-    const shutdown_sequence = (Math.floor(Math.random()*5)).toString();
+    const shutdown_sequence = (Math.floor(Math.random() * 5)).toString();
     if (!dataStore[owner]) dataStore[owner] = {};
     if (!dataStore[owner][application]) dataStore[owner][application] = [];
     dataStore[owner][application].push({ server, status, shutdown_sequence, pingable });
@@ -46,7 +57,9 @@ function calculateProgress() {
     Object.values(apps).forEach(servers => {
       servers.forEach(srv => {
         total++;
-        if (srv.status === 'offline' || srv.status === 'shutdown') { down++; }
+        if (srv.status === 'offline' || srv.status === 'shutdown') {
+          down++;
+        }
       });
     });
   });
@@ -62,22 +75,24 @@ function computeKPI() {
       applications.add(owner + '|' + appName);
       servers.forEach(srv => {
         total_servers++;
-        if (srv.status === 'online') { online++; }
-        else if (srv.status === 'offline' || srv.status === 'shutdown') { offline++; }
-        if (srv.pingable === 'yes') { pingable++; } else { non_pingable++; }
+        if (srv.status === 'online') online++;
+        else if (srv.status === 'offline' || srv.status === 'shutdown') offline++;
+        if (srv.pingable === 'yes') pingable++;
+        else non_pingable++;
       });
     });
   });
   return { total_servers, total_applications: applications.size, online, offline, pingable, non_pingable };
 }
 
-// Middleware: ensure demo data is loaded
+// Ensure demo data is loaded
 app.use((req, res, next) => {
   loadDemoData();
   next();
 });
 
-// Extended filtering in /status endpoint
+// Extended filtering in /status endpoint.
+// This endpoint produces server cards as small, flexible boxes without fixed width.
 app.get('/status', (req, res) => {
   const filterOwner = (req.query.filterOwner || "").toLowerCase();
   const filterApp = (req.query.filterApp || "").toLowerCase();
@@ -90,15 +105,15 @@ app.get('/status', (req, res) => {
   let html = '';
   Object.entries(dataStore).forEach(([owner, apps]) => {
     if (filterOwner && !owner.toLowerCase().includes(filterOwner)) return;
-    html += `<div class="owner-section"><h5>Owner: ${owner}</h5>`;
+    html += `<div class="owner-section mb-2"><h5>Owner: ${owner}</h5>`;
     Object.entries(apps).forEach(([appName, servers]) => {
       if (filterApp && !appName.toLowerCase().includes(filterApp)) return;
       html += `<div class="app-section card p-2 mb-2">
                  <div class="d-flex justify-content-between align-items-center mb-2">
                    <h6 class="mb-0">Application: ${appName}</h6>
-                   <small>Servers: ${servers.map(s => s.server).join(', ')}</small>
+                   <small>${servers.length} servers</small>
                  </div>
-                 <div class="server-boxes">`;
+                 <div class="server-boxes d-flex flex-wrap">`;
       servers
         .filter(srv => {
           if (filterServer && !srv.server.toLowerCase().includes(filterServer)) return false;
@@ -114,16 +129,17 @@ app.get('/status', (req, res) => {
           let statusIcon = (srv.status === 'online') 
             ? '<span class="dot dot-green"></span>' 
             : '<span class="dot dot-red"></span>';
-          let progressValue = (srv.pingable === 'yes') ? 100 : 0;
           html += `
-            <div class="card server-box m-1" style="width: 100px;">
-              <div class="card-body p-2 text-center">
-                <h6 class="card-title" style="font-size: 0.8rem;">${srv.server}</h6>
+            <div class="card server-box m-2">
+              <div class="card-body p-1 text-center">
+                <h6 class="card-title" style="font-size: 0.7rem; margin-bottom: 3px;">${srv.server}</h6>
                 <div class="mb-1">${statusIcon}</div>
-                <div class="progress" style="height: 5px;">
-                  <div class="progress-bar" role="progressbar" style="width: ${progressValue}%"></div>
+                <div class="btn-group btn-group-sm" role="group">
+                  <button class="btn btn-warning initiate-btn" data-owner="${owner}" data-application="${appName}" data-server="${srv.server}">Shutdown</button>
+                  <button class="btn btn-info check-btn" data-owner="${owner}" data-application="${appName}" data-server="${srv.server}">Stat</button>
+                  <button class="btn btn-primary edit-btn" data-orig_owner="${owner}" data-orig_app="${appName}" data-orig_server="${srv.server}">Edit</button>
+                  <button class="btn btn-danger delete-btn" data-owner="${owner}" data-application="${appName}" data-server="${srv.server}">Del</button>
                 </div>
-                <button class="btn btn-sm btn-outline-danger shutdown-btn mt-1" data-owner="${owner}" data-application="${appName}" data-server="${srv.server}">Shutdown</button>
               </div>
             </div>
           `;
@@ -136,6 +152,26 @@ app.get('/status', (req, res) => {
   res.json({ html, progress: overallProgress });
 });
 
+// New endpoint: Check status for an individual server (using ping)
+app.post('/check_status', (req, res) => {
+  const { owner, application, server } = req.body;
+  if (dataStore[owner] && dataStore[owner][application]) {
+    const srv = dataStore[owner][application].find(s => s.server === server);
+    if (srv) {
+      ping.promise.probe(srv.server)
+        .then(result => {
+          srv.status = result.alive ? 'online' : 'offline';
+          return res.json({ message: `Status for ${server} updated to ${srv.status}.` });
+        })
+        .catch(() => res.status(500).json({ message: 'Error checking status.' }));
+    } else {
+      res.status(404).json({ message: 'Server not found.' });
+    }
+  } else {
+    res.status(404).json({ message: 'Record not found.' });
+  }
+});
+
 // Dashboard view
 app.get('/', (req, res) => {
   res.render('index', { title: 'Dashboard' });
@@ -146,20 +182,20 @@ app.get('/applications', (req, res) => {
   res.render('applications', { title: 'Applications', data: dataStore });
 });
 
-// Admin view
-app.get('/admin', (req, res) => {
+// Admin view (protected)
+app.get('/admin', requireAdminAuth, (req, res) => {
   res.render('admin', { title: 'Admin Panel', data: dataStore });
+});
+
+// Admin CSV Import tab (protected)
+app.get('/admin/csv_import', requireAdminAuth, (req, res) => {
+  res.render('csv_import', { title: 'CSV Import' });
 });
 
 // KPI view
 app.get('/kpi', (req, res) => {
   const kpi = computeKPI();
   res.render('kpi', { title: 'KPI Dashboard', kpi });
-});
-
-// CSV Import view
-app.get('/csv_import', (req, res) => {
-  res.render('csv_import', { title: 'CSV Import' });
 });
 
 // CSV Import endpoint: clear existing data then import CSV
@@ -193,7 +229,7 @@ app.post('/upload', upload.single('csv_file'), (req, res) => {
   });
 });
 
-// Trigger Ping Test endpoint: ping each server and update status
+// Trigger Ping Test endpoint: update status of each server by pinging
 app.post('/trigger_ping', async (req, res) => {
   let promises = [];
   Object.keys(dataStore).forEach(owner => {
@@ -210,6 +246,22 @@ app.post('/trigger_ping', async (req, res) => {
   Promise.all(promises)
     .then(() => res.json({ message: "Ping test triggered and statuses updated." }))
     .catch(() => res.status(500).json({ message: "Error during ping tests." }));
+});
+
+// Initiate Shutdown Sequence endpoint (alias for shutdown)
+app.post('/initiate_shutdown', (req, res) => {
+  const { owner, application, server } = req.body;
+  let updated = false;
+  if (dataStore[owner] && dataStore[owner][application]) {
+    dataStore[owner][application].forEach(srv => {
+      if (srv.server === server && srv.status !== 'offline' && srv.status !== 'shutdown') {
+        srv.status = 'shutdown';
+        updated = true;
+      }
+    });
+  }
+  if (updated) return res.json({ message: `Shutdown sequence initiated for ${server}.` });
+  else return res.status(404).json({ message: 'Server not found or already shut down.' });
 });
 
 // Shutdown endpoint: mark server as shutdown
@@ -252,7 +304,7 @@ app.post('/edit_record', (req, res) => {
   else return res.status(404).json({ message: 'Record not found.' });
 });
 
-// DELETE record endpoint: deletes a record by owner, application, and server
+// DELETE record endpoint: delete a record by owner, application, and server
 app.post('/delete_record', (req, res) => {
   const { owner, application, server } = req.body;
   if (dataStore[owner] && dataStore[owner][application]) {

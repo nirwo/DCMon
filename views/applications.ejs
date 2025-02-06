@@ -1,21 +1,33 @@
-<div>
-  <h1 class="text-center">Applications</h1>
-  <% Object.keys(data).forEach(owner => { %>
-    <% Object.keys(data[owner]).forEach(app => { %>
-      <div class="card mb-3">
-        <div class="card-header">
-          <strong><%= owner %></strong> - Application: <%= app %>
+<div class="container">
+  <h1 class="text-center my-4">Applications</h1>
+  <div class="row">
+    <% Object.keys(data).forEach(owner => { %>
+      <% Object.keys(data[owner]).forEach(app => { %>
+        <div class="col-md-6 col-lg-4 mb-3">
+          <div class="card h-100">
+            <div class="card-header bg-light">
+              <strong><%= owner %></strong> &mdash; <em><%= app %></em>
+            </div>
+            <div class="card-body">
+              <% data[owner][app].forEach(srv => { %>
+                <div class="d-flex align-items-center mb-2">
+                  <div class="me-2">
+                    <strong><%= srv.server %></strong>
+                  </div>
+                  <div class="me-2">
+                    <%- (srv.status === 'online') 
+                          ? '<span class="dot dot-green"></span>' 
+                          : '<span class="dot dot-red"></span>' %>
+                  </div>
+                  <div>
+                    <small>Seq: <%= srv.shutdown_sequence %></small>
+                  </div>
+                </div>
+              <% }); %>
+            </div>
+          </div>
         </div>
-        <div class="card-body">
-          <% data[owner][app].forEach(srv => { %>
-            <span class="badge bg-light text-dark me-2">
-              <strong><%= srv.server %></strong> 
-              <%- (srv.status === 'online') ? '<span class="dot dot-green"></span>' : '<span class="dot dot-red"></span>' %> 
-              [Seq: <%= srv.shutdown_sequence %>]
-            </span>
-          <% }); %>
-        </div>
-      </div>
+      <% }); %>
     <% }); %>
-  <% }); %>
+  </div>
 </div>

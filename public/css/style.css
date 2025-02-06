@@ -2,25 +2,29 @@
 body {
   background-color: #f0f2f5;
 }
+
 .dot {
   height: 10px;
   width: 10px;
   border-radius: 50%;
   display: inline-block;
 }
+
 .dot-green {
   background-color: green;
 }
+
 .dot-red {
   background-color: red;
 }
-.owner-section, .app-section {
-  margin-bottom: 15px;
+
+/* For server cards in the dashboard */
+.server-box {
+  flex: 1 1 150px; /* Grow and shrink with a base width of 150px */
+  margin: 5px;
 }
-.server-boxes {
-  display: flex;
-  flex-wrap: wrap;
-}
+
+/* Additional adjustments for filter sidebar */
 .filter-sidebar {
   background: #fff;
   padding: 15px;
