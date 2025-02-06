@@ -1,53 +1,133 @@
-<div class="container">
-  <h1 class="text-center my-4">KPI Dashboard</h1>
-  <div class="row">
-    <div class="col-md-4 mb-3">
-      <div class="card text-white bg-primary">
-        <div class="card-body">
-          <h5 class="card-title">Total Servers</h5>
-          <p class="card-text display-4"><%= kpi.total_servers %></p>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title><%= title %> - KPI Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    .kpi-card { cursor: pointer; }
+    #asset-table { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container my-4">
+    <h1 class="text-center my-4">KPI Dashboard</h1>
+    <div class="row">
+      <div class="col-md-4 mb-3">
+        <div class="card text-white bg-primary kpi-card" data-type="total">
+          <div class="card-body">
+            <h5 class="card-title">Total Servers</h5>
+            <p class="card-text display-4"><%= kpi.total_servers %></p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4 mb-3">
+        <div class="card text-white bg-secondary kpi-card" data-type="applications">
+          <div class="card-body">
+            <h5 class="card-title">Total Applications</h5>
+            <p class="card-text display-4"><%= kpi.total_applications %></p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4 mb-3">
+        <div class="card text-white bg-success kpi-card" data-type="online">
+          <div class="card-body">
+            <h5 class="card-title">Online Servers</h5>
+            <p class="card-text display-4"><%= kpi.online %></p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4 mb-3">
+        <div class="card text-white bg-danger kpi-card" data-type="offline">
+          <div class="card-body">
+            <h5 class="card-title">Offline/Shutdown Servers</h5>
+            <p class="card-text display-4"><%= kpi.offline %></p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4 mb-3">
+        <div class="card text-white bg-info kpi-card" data-type="pingable">
+          <div class="card-body">
+            <h5 class="card-title">Pingable Servers</h5>
+            <p class="card-text display-4"><%= kpi.pingable %></p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4 mb-3">
+        <div class="card text-white bg-warning kpi-card" data-type="nonping">
+          <div class="card-body">
+            <h5 class="card-title">Non-Pingable Servers</h5>
+            <p class="card-text display-4"><%= kpi.non_pingable %></p>
+          </div>
         </div>
       </div>
     </div>
-    <div class="col-md-4 mb-3">
-      <div class="card text-white bg-secondary">
-        <div class="card-body">
-          <h5 class="card-title">Total Applications</h5>
-          <p class="card-text display-4"><%= kpi.total_applications %></p>
-        </div>
-      </div>
+    <div class="text-center mb-3">
+      <button id="toggle-assets" class="btn btn-outline-primary">Show Assets</button>
     </div>
-    <div class="col-md-4 mb-3">
-      <div class="card text-white bg-success">
-        <div class="card-body">
-          <h5 class="card-title">Online Servers</h5>
-          <p class="card-text display-4"><%= kpi.online %></p>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-4 mb-3">
-      <div class="card text-white bg-danger">
-        <div class="card-body">
-          <h5 class="card-title">Offline/Shutdown Servers</h5>
-          <p class="card-text display-4"><%= kpi.offline %></p>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-4 mb-3">
-      <div class="card text-white bg-info">
-        <div class="card-body">
-          <h5 class="card-title">Pingable Servers</h5>
-          <p class="card-text display-4"><%= kpi.pingable %></p>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-4 mb-3">
-      <div class="card text-white bg-warning">
-        <div class="card-body">
-          <h5 class="card-title">Non-Pingable Servers</h5>
-          <p class="card-text display-4"><%= kpi.non_pingable %></p>
-        </div>
-      </div>
+    <div id="asset-table" class="table-responsive">
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>Owner</th>
+            <th>Application</th>
+            <th>Server</th>
+            <th>Status</th>
+            <th>Sequence</th>
+            <th>Pingable</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% assets.forEach(asset => { %>
+            <tr>
+              <td><%= asset.owner %></td>
+              <td><%= asset.application %></td>
+              <td><%= asset.server %></td>
+              <td><%= asset.status %></td>
+              <td><%= asset.shutdown_sequence %></td>
+              <td><%= asset.pingable %></td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
     </div>
   </div>
-</div>
+  
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // Toggle asset table visibility
+    document.getElementById('toggle-assets').addEventListener('click', function() {
+      const table = document.getElementById('asset-table');
+      if (table.style.display === 'none' || table.style.display === '') {
+        table.style.display = 'block';
+        this.textContent = 'Hide Assets';
+      } else {
+        table.style.display = 'none';
+        this.textContent = 'Show Assets';
+      }
+    });
+    
+    // Optional: clicking a KPI card filters the assets table
+    document.querySelectorAll('.kpi-card').forEach(card => {
+      card.addEventListener('click', function() {
+        const type = this.getAttribute('data-type');
+        const rows = document.querySelectorAll('#asset-table tbody tr');
+        rows.forEach(row => {
+          row.style.display = ''; // reset
+          if (type === 'online' && !row.cells[3].textContent.toLowerCase().includes('online')) {
+            row.style.display = 'none';
+          } else if (type === 'offline' && !row.cells[3].textContent.toLowerCase().includes('offline')) {
+            row.style.display = 'none';
+          } else if (type === 'pingable' && !row.cells[5].textContent.toLowerCase().includes('yes')) {
+            row.style.display = 'none';
+          } else if (type === 'nonping' && !row.cells[5].textContent.toLowerCase().includes('no')) {
+            row.style.display = 'none';
+          }
+        });
+        document.getElementById('asset-table').style.display = 'block';
+        document.getElementById('toggle-assets').textContent = 'Hide Assets';
+      });
+    });
+  </script>
+</body>
+</html>

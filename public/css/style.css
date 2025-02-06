@@ -17,13 +17,12 @@ body {
 .dot-red {
   background-color: red;
 }
-.badge.bg-success {
-  background-color: #28a745 !important;
+.dot-secondary {
+  background-color: gray;
 }
-.badge.bg-danger {
-  background-color: #dc3545 !important;
+.filter-sidebar {
+  background: #fff;
+  padding: 15px;
+  border-radius: 5px;
+  box-shadow: 0 0 5px rgba(0,0,0,0.1);
 }
-.badge.bg-secondary {
-  background-color: #6c757d !important;
-}
-/* You can add transitions, hover effects, and other animations here */
