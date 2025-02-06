@@ -20,9 +20,10 @@ body {
 
 /* For server cards in the dashboard */
 .server-box {
-  flex: 1 1 150px; /* Grow and shrink with a base width of 150px */
+  flex: 1 1 150px;
   margin: 5px;
 }
+
 
 /* Additional adjustments for filter sidebar */
 .filter-sidebar {

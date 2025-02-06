@@ -20,7 +20,6 @@ $(document).ready(function(){
         $("#server-status").fadeOut(200, function(){
           $(this).html(data.html).fadeIn(400);
         });
-        $(".progress-bar").css("width", data.progress + "%").text(data.progress + "%");
       },
       error: function() {
         console.error("Error fetching server status.");
@@ -54,36 +53,15 @@ $(document).ready(function(){
     });
   });
   
-  // CSV import form submission
-  $("#csv-import-form").on("submit", function(e){
-    e.preventDefault();
-    var formData = new FormData(this);
+  // Initiate Shutdown button handler
+  $(document).on("click", ".initiate-btn", function(){
+    let owner = $(this).data("owner");
+    let application = $(this).data("application");
+    let server = $(this).data("server");
     $.ajax({
-      url: "/upload",
-      type: "POST",
-      data: formData,
-      processData: false,
-      contentType: false,
-      dataType: "json",
-      success: function(response){
-        alert(response.message);
-      },
-      error: function(xhr){
-        alert("Error: " + xhr.responseJSON.message);
-      }
-    });
-  });
-  
-  // Shutdown button handler
-  $(document).on("click", ".shutdown-btn", function(){
-    var btn = $(this);
-    var owner = btn.data("owner");
-    var application = btn.data("application");
-    var server = btn.data("server");
-    $.ajax({
-      url: "/shutdown",
+      url: "/initiate_shutdown",
       method: "POST",
-      data: { owner: owner, application: application, server: server },
+      data: { owner, application, server },
       dataType: "json",
       success: function(response){
         alert(response.message);
@@ -95,21 +73,19 @@ $(document).ready(function(){
     });
   });
   
-  // Delete button handler
-  $(document).on("click", ".delete-btn", function(){
-    if (!confirm("Are you sure you want to delete this record?")) return;
-    var btn = $(this);
-    var owner = btn.data("owner");
-    var application = btn.data("application");
-    var server = btn.data("server");
+  // Check Status button handler
+  $(document).on("click", ".check-btn", function(){
+    let owner = $(this).data("owner");
+    let application = $(this).data("application");
+    let server = $(this).data("server");
     $.ajax({
-      url: "/delete_record",
+      url: "/check_status",
       method: "POST",
-      data: { owner: owner, application: application, server: server },
+      data: { owner, application, server },
       dataType: "json",
       success: function(response){
         alert(response.message);
-        location.reload();
+        loadServerStatus();
       },
       error: function(xhr){
         alert("Error: " + xhr.responseJSON.message);
@@ -117,23 +93,24 @@ $(document).ready(function(){
     });
   });
   
-  // Admin edit modal handling using Bootstrap's modal
-  var editModal = new bootstrap.Modal(document.getElementById('edit-modal'));
+  // Edit button handler: open edit modal and populate fields
   $(document).on("click", ".edit-btn", function(){
-    var btn = $(this);
-    $("#orig_owner").val(btn.data("orig_owner"));
-    $("#orig_app").val(btn.data("orig_app"));
-    $("#orig_server").val(btn.data("orig_server"));
-    var row = btn.closest("tr");
-    $("#new_owner").val(row.find("td[data-field='owner']").text());
-    $("#new_app").val(row.find("td[data-field='application']").text());
-    $("#new_server").val(row.find("td[data-field='server']").text());
-    $("#new_status").val(row.find("td[data-field='status']").text());
-    $("#new_shutdown_sequence").val(row.find("td[data-field='shutdown_sequence']").text());
-    $("#new_pingable").val(row.find("td[data-field='pingable']").text());
-    editModal.show();
+    let owner = $(this).data("orig_owner");
+    let application = $(this).data("orig_app");
+    let server = $(this).data("orig_server");
+    // Populate modal fields (for simplicity, only using these basic values)
+    $("#orig_owner").val(owner);
+    $("#orig_app").val(application);
+    $("#orig_server").val(server);
+    $("#new_owner").val(owner);
+    $("#new_app").val(application);
+    $("#new_server").val(server);
+    // Open modal (assumes you have a Bootstrap modal with id "edit-modal")
+    let modal = new bootstrap.Modal(document.getElementById("edit-modal"));
+    modal.show();
   });
   
+  // Edit form submission
   $("#edit-form").on("submit", function(e){
     e.preventDefault();
     $.ajax({
@@ -143,7 +120,7 @@ $(document).ready(function(){
       dataType: "json",
       success: function(response){
         alert(response.message);
-        location.reload();
+        loadServerStatus();
       },
       error: function(xhr){
         alert("Error: " + xhr.responseJSON.message);
