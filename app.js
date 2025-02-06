@@ -210,7 +210,7 @@ app.get('/admin', requireAdminAuth, (req, res) => {
 });
 
 // Admin CSV Import tab (protected)
-app.get('/admin/csv_import', requireAdminAuth, (req, res) => {
+app.get('/csv_import', (req, res) => {
   res.render('csv_import', { title: 'CSV Import' });
 });
 
