@@ -206,22 +206,21 @@ app.get('/applications', (req, res) => {
 app.get('/admin', requireAdminAuth, (req, res) => {
   res.render('admin', { title: 'Admin Panel', data: dataStore });
 });
-
-// Admin CSV Import tab (protected)
-app.get('/admin/csv_import', requireAdminAuth, (req, res) => {
-  res.render('csv_import', { title: 'CSV Import' });
-});
-
 // KPI view
 app.get('/kpi', (req, res) => {
   const kpi = computeKPI();
   res.render('kpi', { title: 'KPI Dashboard', kpi });
 });
 
-// CSV Import endpoint: clear existing data then import CSV
-app.post('/upload', upload.single('csv_file'), (req, res) => {
+// Admin CSV Import tab (protected)
+app.get('/admin/csv_import', requireAdminAuth, (req, res) => {
+  res.render('csv_import', { title: 'CSV Import' });
+});
+
+// CSV Import endpoint: clear existing data then import CSV (protected)
+app.post('/upload', requireAdminAuth, upload.single('csv_file'), (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'No file uploaded.' });
-  dataStore = {};
+  dataStore = {};  // Clear existing data before importing
   const map_owner = req.body.map_owner || 'owner';
   const map_application = req.body.map_application || 'application';
   const map_server = req.body.map_server || 'server';
@@ -248,6 +247,7 @@ app.post('/upload', upload.single('csv_file'), (req, res) => {
     return res.json({ message: `CSV imported successfully. ${importedCount} records added.` });
   });
 });
+
 
 // Trigger Ping Test endpoint: update each server's status by pinging
 app.post('/trigger_ping', async (req, res) => {
