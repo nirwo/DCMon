@@ -31,7 +31,7 @@ app.use('/sample_csv', express.static(path.join(__dirname, 'sample_csv')));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// In-memory data store: { owner: { application: [ { server, status, shutdown_sequence, pingable } ] } }
+// In-memory data store structure: { owner: { application: [ { server, status, shutdown_sequence, pingable } ] } }
 let dataStore = {};
 
 // Load demo data if empty
@@ -52,7 +52,7 @@ function loadDemoData() {
   }
 }
 
-// Calculate overall progress (percentage offline/shutdown)
+// Calculate overall progress (percentage of servers offline/shutdown)
 function calculateProgress() {
   let total = 0, down = 0;
   Object.values(dataStore).forEach(apps => {
@@ -108,7 +108,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Extended filtering in /status endpoint; generate server cards as small, flexible boxes
+// Extended filtering in /status endpoint; returns server cards as small, flexible boxes without delete button
 app.get('/status', (req, res) => {
   const filterOwner = (req.query.filterOwner || "").toLowerCase();
   const filterApp = (req.query.filterApp || "").toLowerCase();
@@ -145,7 +145,6 @@ app.get('/status', (req, res) => {
           let statusIcon = (srv.status === 'online') 
             ? '<span class="dot dot-green"></span>' 
             : '<span class="dot dot-red"></span>';
-          // Use a flex container with two columns: server name on left, vertical buttons on right.
           html += `
             <div class="card server-box m-1">
               <div class="card-body p-1">
@@ -158,7 +157,6 @@ app.get('/status', (req, res) => {
                       <button class="btn btn-warning btn-sm mb-1 initiate-btn" data-owner="${owner}" data-application="${appName}" data-server="${srv.server}">Initiate Shutdown</button>
                       <button class="btn btn-info btn-sm mb-1 check-btn" data-owner="${owner}" data-application="${appName}" data-server="${srv.server}">Check Status</button>
                       <button class="btn btn-primary btn-sm mb-1 edit-btn" data-orig_owner="${owner}" data-orig_app="${appName}" data-orig_server="${srv.server}">Edit</button>
-                      <button class="btn btn-danger btn-sm delete-btn" data-owner="${owner}" data-application="${appName}" data-server="${srv.server}">Delete</button>
                     </div>
                   </div>
                 </div>
@@ -210,7 +208,7 @@ app.get('/admin', requireAdminAuth, (req, res) => {
 });
 
 // Admin CSV Import tab (protected)
-app.get('/csv_import', (req, res) => {
+app.get('/admin/csv_import', requireAdminAuth, (req, res) => {
   res.render('csv_import', { title: 'CSV Import' });
 });
 
