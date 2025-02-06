@@ -4,12 +4,12 @@ const path = require('path');
 const multer = require('multer');
 const { parse } = require('csv-parse');
 const ping = require('ping');
-const cookieParser = require('cookie-parser'); // For admin login UI
+const cookieParser = require('cookie-parser');
 const upload = multer();
 const app = express();
 const PORT = 3001;
 
-// Use cookie parser for admin login UI
+// Use cookie-parser for admin login UI
 app.use(cookieParser());
 
 // Simple admin authentication using cookie "adminAuth"
@@ -31,14 +31,15 @@ app.use('/sample_csv', express.static(path.join(__dirname, 'sample_csv')));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// In-memory data store: { owner: { application: [ { server, status, shutdown_sequence, pingable } ] } }
+// In-memory data store structure: 
+// { owner: { application: [ { server, status, shutdown_sequence, pingable } ] } }
 let dataStore = {};
 
 // Load demo data if empty
 function loadDemoData() {
   if (Object.keys(dataStore).length > 0) return;
-  const owners = ['Owner1','Owner2','Owner3','Owner4','Owner5'];
-  const apps = ['App1','App2','App3','App4','App5','App6','App7','App8','App9','App10'];
+  const owners = ['Owner1', 'Owner2', 'Owner3', 'Owner4', 'Owner5'];
+  const apps = ['App1', 'App2', 'App3', 'App4', 'App5', 'App6', 'App7', 'App8', 'App9', 'App10'];
   for (let i = 1; i <= 200; i++) {
     const owner = owners[Math.floor(Math.random() * owners.length)];
     const application = apps[Math.floor(Math.random() * apps.length)];
@@ -52,7 +53,7 @@ function loadDemoData() {
   }
 }
 
-// Calculate overall progress (percentage offline/shutdown)
+// Calculate overall progress (percentage of servers offline/shutdown)
 function calculateProgress() {
   let total = 0, down = 0;
   Object.values(dataStore).forEach(apps => {
@@ -108,7 +109,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Extended filtering in /status endpoint
+// /status endpoint with extended filtering and grouping by sequence
 app.get('/status', (req, res) => {
   const filterOwner = (req.query.filterOwner || "").toLowerCase();
   const filterApp = (req.query.filterApp || "").toLowerCase();
@@ -121,17 +122,11 @@ app.get('/status', (req, res) => {
   let html = '';
   Object.entries(dataStore).forEach(([owner, apps]) => {
     if (filterOwner && !owner.toLowerCase().includes(filterOwner)) return;
-    html += `<div class="owner-section mb-2"><h5>Owner: ${owner}</h5>`;
+    html += `<div class="owner-section mb-3"><h5>Owner: ${owner}</h5>`;
     Object.entries(apps).forEach(([appName, servers]) => {
       if (filterApp && !appName.toLowerCase().includes(filterApp)) return;
-      html += `<div class="app-section card p-2 mb-2">
-                 <div class="d-flex justify-content-between align-items-center mb-2">
-                   <h6 class="mb-0">Application: ${appName}</h6>
-                   <small>${servers.length} servers</small>
-                 </div>
-                 <div class="server-boxes d-flex flex-wrap">`;
       // Filter and sort servers by shutdown_sequence
-      let filtered = servers.filter(srv => {
+      let filteredServers = servers.filter(srv => {
         if (filterServer && !srv.server.toLowerCase().includes(filterServer)) return false;
         let seq = Number(srv.shutdown_sequence);
         if (filterSeqMin !== null && seq < filterSeqMin) return false;
@@ -141,53 +136,40 @@ app.get('/status', (req, res) => {
         return true;
       }).sort((a, b) => Number(a.shutdown_sequence) - Number(b.shutdown_sequence));
       
-      // Group by shutdown_sequence
-      let groups = {};
-      filtered.forEach(srv => {
-        if (!groups[srv.shutdown_sequence]) groups[srv.shutdown_sequence] = [];
-        groups[srv.shutdown_sequence].push(srv);
-      });
-      let seqKeys = Object.keys(groups).sort((a, b) => Number(a) - Number(b));
+      html += `<div class="app-section card p-2 mb-3">
+                 <div class="d-flex justify-content-between align-items-center mb-2">
+                   <h6 class="mb-0">Application: ${appName}</h6>
+                   <small>${filteredServers.length} servers</small>
+                 </div>
+                 <div class="server-boxes d-flex flex-wrap">`;
       
-      html += `<div class="server-boxes d-flex flex-wrap">`;
-      seqKeys.forEach(seq => {
-        html += `<div class="w-100"><strong>Sequence: ${seq}</strong></div>`;
-        groups[seq].forEach(srv => {
-          // Determine if "Initiate Shutdown" should be disabled:
-          // It is disabled if any server in the same application with a lower sequence is not shutdown.
-          let currentSeq = Number(srv.shutdown_sequence);
-          let disableShutdown = false;
-          seqKeys.forEach(key => {
-            if (Number(key) < currentSeq) {
-              groups[key].forEach(other => {
-                if (other.status !== 'shutdown') disableShutdown = true;
-              });
-            }
-          });
-          // Create a colored badge for status
-          let statusBadge = '';
-          if (srv.status === 'online') {
-            statusBadge = '<span class="badge bg-success">Online</span>';
-          } else if (srv.status === 'offline') {
-            statusBadge = '<span class="badge bg-danger">Offline</span>';
-          } else {
-            statusBadge = `<span class="badge bg-secondary">${srv.status}</span>`;
-          }
-          
-          html += `
-            <div class="card server-box m-1">
-              <div class="card-body p-1 text-center">
-                <h5 class="card-title" style="font-size: 0.9rem; margin:0;">${srv.server}</h5>
-                <p style="margin:0;">${statusBadge}</p>
-                <p style="margin:0;"><small>Seq: ${srv.shutdown_sequence}</small></p>
-                <div class="d-flex flex-column mt-2">
-                  <button class="btn btn-warning btn-sm mb-1 initiate-btn" data-owner="${owner}" data-application="${appName}" data-server="${srv.server}" ${disableShutdown ? 'disabled' : ''}>Initiate Shutdown</button>
-                  <button class="btn btn-info btn-sm mb-1 check-btn" data-owner="${owner}" data-application="${appName}" data-server="${srv.server}">Check Status</button>
-                </div>
+      // Render each server card in order
+      filteredServers.forEach(srv => {
+        // Disable initiate if any server in the same application with a lower sequence is not shutdown.
+        let currentSeq = Number(srv.shutdown_sequence);
+        let disableShutdown = filteredServers.some(other => {
+          return Number(other.shutdown_sequence) < currentSeq && other.status !== 'shutdown';
+        });
+        // Status badge with colors
+        let statusBadge = '';
+        if (srv.status === 'online') statusBadge = '<span class="badge bg-success">Online</span>';
+        else if (srv.status === 'offline') statusBadge = '<span class="badge bg-danger">Offline</span>';
+        else statusBadge = `<span class="badge bg-secondary">${srv.status}</span>`;
+        
+        html += `
+          <div class="card server-box m-1">
+            <div class="card-body p-1 text-center">
+              <h5 class="card-title" style="font-size: 0.9rem; margin:0;">${srv.server}</h5>
+              <p style="margin:0;">${statusBadge}</p>
+              <p style="margin:0;"><small>Seq: ${srv.shutdown_sequence}</small></p>
+              <div class="d-flex flex-column mt-2">
+                <button class="btn btn-warning btn-sm mb-1 initiate-btn" data-owner="${owner}" data-application="${appName}" data-server="${srv.server}" ${disableShutdown ? 'disabled' : ''}>Initiate Shutdown</button>
+                <button class="btn btn-info btn-sm mb-1 check-btn" data-owner="${owner}" data-application="${appName}" data-server="${srv.server}">Check Status</button>
+                <button class="btn btn-primary btn-sm mb-1 edit-btn" data-orig_owner="${owner}" data-orig_app="${appName}" data-orig_server="${srv.server}">Edit</button>
               </div>
             </div>
-          `;
-        });
+          </div>
+        `;
       });
       html += `</div></div>`;
     });
@@ -367,6 +349,6 @@ app.use((req, res) => {
   res.status(404).render('404', { title: 'Page Not Found' });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT,'0.0.0.0', () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
